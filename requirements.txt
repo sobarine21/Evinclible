@@ -1,1 +1,6 @@
-streamlit
+streamlit 
+librosa
+speechrecognition 
+spacy 
+tensorflow
+python -m spacy download en_core_web_sm
