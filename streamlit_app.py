@@ -1,24 +1,23 @@
 import streamlit as st
-import speech_recognition as sr
+import whisper
 import google.generativeai as genai
-import librosa
 
 # Configure the API key securely from Streamlit's secrets
 # Make sure to add GOOGLE_API_KEY in secrets.toml (for local) or Streamlit Cloud Secrets
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
-def transcribe_audio(audio_file):
-    recognizer = sr.Recognizer()
-    if audio_file.name.endswith(".m4a"):
-        # Convert m4a to wav for compatibility with speech_recognition
-        y, sr = librosa.load(audio_file)
-        librosa.output.write_wav("temp_audio.wav", y, sr=16000)
-        audio_file = "temp_audio.wav"
+# Initialize the Whisper model
+model = whisper.load_model("base")  # You can use "small", "medium", or "large" for better accuracy
 
-    with sr.AudioFile(audio_file) as source:
-        audio_data = recognizer.record(source)
-        text = recognizer.recognize_google(audio_data)
-        return text
+def transcribe_audio(audio_file):
+    # Use Whisper to transcribe the audio file
+    audio = whisper.load_audio(audio_file)
+    audio = whisper.pad_or_trim(audio)
+    mel = whisper.log_mel_spectrogram(audio).to(model.device)
+    
+    # Perform the transcription
+    result = model.transcribe(mel)
+    return result["text"]
 
 def analyze_text_with_gemini(text):
     prompt = f"Analyze the following text: {text}. Provide a summary, identify key points, and suggest potential insights or actions."
@@ -28,14 +27,19 @@ def analyze_text_with_gemini(text):
 
 # Streamlit app
 st.title("Audio Transcription and AI Analysis")
-uploaded_file = st.file_uploader("Choose an audio file", type=["wav", "mp3", "m4a"])
+uploaded_file = st.file_uploader("Choose an audio file", type=["wav", "mp3"])
 
 if uploaded_file is not None:
-    transcript = transcribe_audio(uploaded_file)
+    with open("temp_audio.wav", "wb") as f:
+        f.write(uploaded_file.read())
+
+    # Transcribe the audio using Whisper
+    transcript = transcribe_audio("temp_audio.wav")
     st.write("Transcript:")
     st.write(transcript)
 
     try:
+        # Analyze the transcript using Gemini
         analysis_result = analyze_text_with_gemini(transcript)
         st.write("AI Analysis:")
         st.write(analysis_result)
