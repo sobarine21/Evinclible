@@ -1,39 +1,47 @@
+import os
 import streamlit as st
-import whisper
-import google.generativeai as genai
+import torch
+from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+import soundfile as sf
 
-# Configure the API key securely from Streamlit's secrets
-genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-
-# Load Whisper model
-model = whisper.load_model("base")  # Choose 'base' or another model size if needed
-
+# Function to transcribe audio using Wav2Vec2 from Hugging Face
 def transcribe_audio(audio_file):
-    # Use Whisper to transcribe the audio file
-    result = model.transcribe(audio_file)
-    return result['text']
-
-def analyze_text_with_gemini(text):
-    prompt = f"Analyze the following text: {text}. Provide a summary, identify key points, and suggest potential insights or actions."
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    response = model.generate_content(prompt)
-    return response.text
+    # Load pre-trained Wav2Vec2 model and processor
+    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+    model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
+    
+    # Read the audio file (ensure it's in WAV format)
+    audio_input, samplerate = sf.read(audio_file)
+    
+    # Process the audio and predict transcription
+    inputs = processor(audio_input, return_tensors="pt", sampling_rate=samplerate)
+    with torch.no_grad():
+        logits = model(input_values=inputs.input_values).logits
+    predicted_ids = torch.argmax(logits, dim=-1)
+    
+    # Decode the prediction to text
+    transcription = processor.batch_decode(predicted_ids)
+    return transcription[0]
 
 # Streamlit app
 st.title("Audio Transcription and AI Analysis")
-uploaded_file = st.file_uploader("Choose an audio file", type=["wav", "mp3"])
+uploaded_file = st.file_uploader("Choose an audio file", type=["wav"])
 
 if uploaded_file is not None:
-    with open("temp_audio.wav", "wb") as f:
+    # Save the uploaded file to disk
+    file_path = "temp_audio.wav"
+    with open(file_path, "wb") as f:
         f.write(uploaded_file.read())
 
-    transcript = transcribe_audio("temp_audio.wav")
-    st.write("Transcript:")
-    st.write(transcript)
-
+    # Transcribe the audio using Wav2Vec2
     try:
-        analysis_result = analyze_text_with_gemini(transcript)
-        st.write("AI Analysis:")
-        st.write(analysis_result)
+        transcript = transcribe_audio(file_path)
+        st.write("Transcript:")
+        st.write(transcript)
+
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error with transcription: {e}")
+    
+    # Clean up the saved file after processing
+    if os.path.exists(file_path):
+        os.remove(file_path)
