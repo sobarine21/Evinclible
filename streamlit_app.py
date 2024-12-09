@@ -1,10 +1,10 @@
 import streamlit as st
-from moviepy.audio.io.AudioFileClip import AudioFileClip
+from pydub import AudioSegment
 import os
 
 def convert_audio(input_file, output_file, output_format):
     """
-    Converts an audio file to the specified format using moviepy.
+    Converts an audio file to the specified format using pydub.
 
     Args:
         input_file (str): Path to the input file.
@@ -12,8 +12,11 @@ def convert_audio(input_file, output_file, output_format):
         output_format (str): Desired output format (e.g., 'mp3', 'wav').
     """
     try:
-        with AudioFileClip(input_file) as audio:
-            audio.write_audiofile(output_file, codec='libmp3lame' if output_format == 'mp3' else None)
+        # Load the audio file
+        audio = AudioSegment.from_file(input_file)
+        
+        # Export the file in the specified format
+        audio.export(output_file, format=output_format)
         st.success(f"Conversion successful: {output_file}")
     except Exception as e:
         st.error(f"Error converting file: {e}")
