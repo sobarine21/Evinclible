@@ -1,65 +1,57 @@
 import streamlit as st
-import librosa
-import speech_recognition as sr
-import spacy
-import tensorflow as tf
-import numpy as np
+from pydub import AudioSegment
+import os
 
-# Streamlit App UI
-st.title("Customer Support Call Analysis")
+def convert_audio(input_file, output_format):
+    """
+    Converts an audio file to the specified format.
 
-# File upload
-uploaded_file = st.file_uploader("Choose an audio file", type=["wav", "mp3", "ogg"])
+    Args:
+        input_file (str): Path to the input file.
+        output_format (str): Desired output format (e.g., 'wav', 'mp3').
 
-if uploaded_file is not None:
-    # Load audio file
-    audio, sample_rate = librosa.load(uploaded_file, sr=None)
-    
-    # Display audio player
-    st.audio(uploaded_file, format="audio/wav")
+    Returns:
+        None
+    """
 
-    # Speech-to-Text
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(uploaded_file) as source:
-        audio_data = recognizer.record(source)
     try:
-        text = recognizer.recognize_google(audio_data)
-    except sr.UnknownValueError:
-        text = "Google Speech Recognition could not understand the audio"
-    except sr.RequestError as e:
-        text = f"Could not request results from Google Speech Recognition service; {e}"
-    
-    # NLP Analysis
-    nlp = spacy.load("en_core_web_sm")
-    doc = nlp(text)
+        audio = AudioSegment.from_file(input_file)
+        audio.export(output_file, format=output_format)
+        st.success(f"Conversion successful: {output_file}")
+    except Exception as e:
+        st.error(f"Error converting file: {e}")
 
-    # Preprocess Text for Sentiment Analysis
-    def preprocess_text(text):
-        return " ".join([token.lemma_ for token in doc if not token.is_stop])
-    
-    processed_text = preprocess_text(text)
+def main():
+    st.title("Audio Converter")
 
-    # Load Pre-trained Sentiment Model (Assumes the model is already trained and saved as 'sentiment_model.h5')
-    sentiment_model = tf.keras.models.load_model("sentiment_model.h5")
-    
-    # Predict Sentiment (Assumes the sentiment model is a text-based neural network)
-    sentiment_input = np.array([processed_text])
-    sentiment_score = sentiment_model.predict(sentiment_input)
+    uploaded_file = st.file_uploader("Upload an audio file", type=["m4a", "wav", "mp3"])
 
-    # Display results
-    st.write("Transcript:")
-    st.write(text)
+    if uploaded_file is not None:
+        file_details = {
+            "filename": uploaded_file.name,
+            "filetype": uploaded_file.type
+        }
+        st.write(file_details)
 
-    st.write("Sentiment Score:")
-    st.write(sentiment_score[0])
+        with open(os.path.join("temp", uploaded_file.name), "wb") as f:
+            f.write(uploaded_file.read())
 
-    # Additional NLP Analysis
-    st.write("Entities:")
-    for ent in doc.ents:
-        st.write(f"{ent.text} ({ent.label_})")
+        output_format = st.selectbox("Select output format", ("wav", "mp3"))
 
-    st.write("Tokens and POS:")
-    for token in doc:
-        st.write(f"{token.text} ({token.pos_})")
+        if st.button("Convert"):
+            input_file = os.path.join("temp", uploaded_file.name)
+            output_file = os.path.join("temp", f"{uploaded_file.name.split('.')[0]}.{output_format}")
+            convert_audio(input_file, output_format)
 
-    # Add any other analyses you wish to include...
+            with open(output_file, "rb") as f:
+                st.download_button(
+                    label="Download converted file",
+                    data=f,
+                    file_name=f"{uploaded_file.name.split('.')[0]}.{output_format}"
+                )
+
+            os.remove(input_file)
+            os.remove(output_file)
+
+if __name__ == "__main__":
+    main()
