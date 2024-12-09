@@ -1,2 +1,4 @@
 streamlit 
-pydub
+speech_recognition
+librosa
+google.generativeai
