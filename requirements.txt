@@ -1,4 +1,5 @@
 streamlit 
 librosa
 google.generativeai
-speech_recognition
+speech_recognition==3.10.0
+
