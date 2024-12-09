@@ -3,6 +3,7 @@ import streamlit as st
 import torch
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 import soundfile as sf
+import librosa  # For resampling
 
 # Function to transcribe audio using Wav2Vec2 from Hugging Face
 def transcribe_audio(audio_file):
@@ -12,6 +13,11 @@ def transcribe_audio(audio_file):
     
     # Read the audio file (ensure it's in WAV format)
     audio_input, samplerate = sf.read(audio_file)
+    
+    # Resample the audio to 16 kHz if the sample rate is not 16 kHz
+    if samplerate != 16000:
+        audio_input = librosa.resample(audio_input, samplerate, 16000)
+        samplerate = 16000
     
     # Process the audio and predict transcription
     inputs = processor(audio_input, return_tensors="pt", sampling_rate=samplerate)
