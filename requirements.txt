@@ -1,5 +1,4 @@
 streamlit 
-librosa
 google.generativeai
-speech_recognition==3.10.0
+openai-whisper
 
