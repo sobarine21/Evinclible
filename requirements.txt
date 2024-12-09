@@ -1,6 +1,2 @@
 streamlit 
-librosa
-speechrecognition 
-spacy 
-tensorflow
-en_core_web_sm
+pydub
