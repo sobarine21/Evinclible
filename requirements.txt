@@ -1,3 +1,4 @@
 streamlit 
-simpleaudio
-pydub
+librosa
+google.generativeai
+speech_recognition
