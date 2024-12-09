@@ -1,64 +1,43 @@
 import streamlit as st
-from pydub import AudioSegment
-import os
+import speech_recognition as sr
+import google.generativeai as genai
+import librosa
 
-def convert_audio(input_file, output_file, output_format):
-    """
-    Converts an audio file to the specified format using pydub.
+# Configure the API key securely from Streamlit's secrets
+# Make sure to add GOOGLE_API_KEY in secrets.toml (for local) or Streamlit Cloud Secrets
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
-    Args:
-        input_file (str): Path to the input file.
-        output_file (str): Path to save the converted file.
-        output_format (str): Desired output format (e.g., 'mp3', 'wav').
-    """
+def transcribe_audio(audio_file):
+    recognizer = sr.Recognizer()
+    if audio_file.name.endswith(".m4a"):
+        # Convert m4a to wav for compatibility with speech_recognition
+        y, sr = librosa.load(audio_file)
+        librosa.output.write_wav("temp_audio.wav", y, sr=16000)
+        audio_file = "temp_audio.wav"
+
+    with sr.AudioFile(audio_file) as source:
+        audio_data = recognizer.record(source)
+        text = recognizer.recognize_google(audio_data)
+        return text
+
+def analyze_text_with_gemini(text):
+    prompt = f"Analyze the following text: {text}. Provide a summary, identify key points, and suggest potential insights or actions."
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    response = model.generate_content(prompt)
+    return response.text
+
+# Streamlit app
+st.title("Audio Transcription and AI Analysis")
+uploaded_file = st.file_uploader("Choose an audio file", type=["wav", "mp3", "m4a"])
+
+if uploaded_file is not None:
+    transcript = transcribe_audio(uploaded_file)
+    st.write("Transcript:")
+    st.write(transcript)
+
     try:
-        # Load the audio file
-        audio = AudioSegment.from_file(input_file)
-        
-        # Export the file in the specified format
-        audio.export(output_file, format=output_format)
-        st.success(f"Conversion successful: {output_file}")
+        analysis_result = analyze_text_with_gemini(transcript)
+        st.write("AI Analysis:")
+        st.write(analysis_result)
     except Exception as e:
-        st.error(f"Error converting file: {e}")
-
-def main():
-    st.title("Audio Converter")
-
-    # Ensure the 'temp' directory exists
-    if not os.path.exists("temp"):
-        os.makedirs("temp")
-
-    uploaded_file = st.file_uploader("Upload an audio file", type=["m4a", "wav", "mp3"])
-
-    if uploaded_file is not None:
-        file_details = {
-            "filename": uploaded_file.name,
-            "filetype": uploaded_file.type
-        }
-        st.write(file_details)
-
-        # Save the uploaded file to the 'temp' directory
-        input_file = os.path.join("temp", uploaded_file.name)
-        with open(input_file, "wb") as f:
-            f.write(uploaded_file.read())
-
-        output_format = st.selectbox("Select output format", ("wav", "mp3"))
-
-        if st.button("Convert"):
-            output_file = os.path.join("temp", f"{uploaded_file.name.split('.')[0]}.{output_format}")
-            convert_audio(input_file, output_file, output_format)
-
-            # Provide a download button for the converted file
-            with open(output_file, "rb") as f:
-                st.download_button(
-                    label="Download converted file",
-                    data=f,
-                    file_name=f"{uploaded_file.name.split('.')[0]}.{output_format}"
-                )
-
-            # Clean up temporary files
-            os.remove(input_file)
-            os.remove(output_file)
-
-if __name__ == "__main__":
-    main()
+        st.error(f"Error: {e}")
