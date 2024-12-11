@@ -5,6 +5,7 @@ import os
 import traceback
 import ffmpeg
 from io import BytesIO
+from pydub import AudioSegment
 
 # App Title
 st.title("Audio to Text Transcription")
@@ -35,16 +36,14 @@ if uploaded_file:
         except Exception as e:
             st.error(f"Error loading whisper module: {str(e)}")
 
-        # Install ffmpeg using ffmpeg-python
+        # Convert audio to correct format using pydub and ffmpeg-binary
         try:
-            # Check if ffmpeg is installed
-            ffmpeg.input("test.mp4")
-            st.info("FFmpeg is installed!")
+            # Convert the audio to WAV if necessary
+            audio = AudioSegment.from_file(temp_audio_path)
+            audio.export(temp_audio_path, format="wav")
+            st.info("Audio converted to WAV format.")
         except Exception as e:
-            st.warning("FFmpeg is not installed, installing via Python...")
-            import subprocess
-            subprocess.run(["pip", "install", "ffmpeg-python"], check=True)
-            st.info("FFmpeg installation complete.")
+            st.error(f"Error converting audio file: {str(e)}")
 
         # Load Whisper Model
         st.info("Loading transcription model (this may take a few seconds)...")
