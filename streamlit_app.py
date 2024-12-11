@@ -3,9 +3,7 @@ import whisper
 import tempfile
 import os
 import traceback
-import ffmpeg
 from io import BytesIO
-from pydub import AudioSegment
 
 # App Title
 st.title("Audio to Text Transcription")
@@ -35,15 +33,6 @@ if uploaded_file:
             help(whisper)  # Verify the load_model method is available
         except Exception as e:
             st.error(f"Error loading whisper module: {str(e)}")
-
-        # Convert audio to correct format using pydub and ffmpeg-python
-        try:
-            # Convert the audio to WAV if necessary
-            audio = AudioSegment.from_file(temp_audio_path)
-            audio.export(temp_audio_path, format="wav")
-            st.info("Audio converted to WAV format.")
-        except Exception as e:
-            st.error(f"Error converting audio file: {str(e)}")
 
         # Load Whisper Model
         st.info("Loading transcription model (this may take a few seconds)...")
