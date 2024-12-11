@@ -3,6 +3,8 @@ import whisper
 import tempfile
 import os
 import traceback
+import ffmpeg
+from io import BytesIO
 
 # App Title
 st.title("Audio to Text Transcription")
@@ -25,6 +27,24 @@ if uploaded_file:
 
         st.audio(uploaded_file, format="audio/wav")
         st.success("File uploaded successfully!")
+
+        # Check if whisper is loaded correctly
+        st.info("Checking whisper module...")
+        try:
+            help(whisper)  # Verify the load_model method is available
+        except Exception as e:
+            st.error(f"Error loading whisper module: {str(e)}")
+
+        # Install ffmpeg using ffmpeg-python
+        try:
+            # Check if ffmpeg is installed
+            ffmpeg.input("test.mp4")
+            st.info("FFmpeg is installed!")
+        except Exception as e:
+            st.warning("FFmpeg is not installed, installing via Python...")
+            import subprocess
+            subprocess.run(["pip", "install", "ffmpeg-python"], check=True)
+            st.info("FFmpeg installation complete.")
 
         # Load Whisper Model
         st.info("Loading transcription model (this may take a few seconds)...")
