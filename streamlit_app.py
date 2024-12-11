@@ -65,4 +65,3 @@ if uploaded_file:
 
 # Footer
 st.write("Powered by OpenAI Whisper and Streamlit")
-
