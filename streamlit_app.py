@@ -36,7 +36,7 @@ if uploaded_file:
         except Exception as e:
             st.error(f"Error loading whisper module: {str(e)}")
 
-        # Convert audio to correct format using pydub and ffmpeg-binary
+        # Convert audio to correct format using pydub and ffmpeg-python
         try:
             # Convert the audio to WAV if necessary
             audio = AudioSegment.from_file(temp_audio_path)
