@@ -1,53 +1,45 @@
-import os
 import streamlit as st
-import torch
-from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
-import soundfile as sf
-import librosa  # For resampling
+from whisper_timestamped import load_model, transcribe_with_timestamps
+import tempfile
+import os
 
-# Function to transcribe audio using Wav2Vec2 from Hugging Face
-def transcribe_audio(audio_file):
-    # Load pre-trained Wav2Vec2 model and processor
-    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
-    model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
-    
-    # Read the audio file (ensure it's in WAV format)
-    audio_input, samplerate = sf.read(audio_file)
-    
-    # Resample the audio to 16 kHz if the sample rate is not 16 kHz
-    if samplerate != 16000:
-        audio_input = librosa.resample(audio_input, samplerate, 16000)
-        samplerate = 16000
-    
-    # Process the audio and predict transcription
-    inputs = processor(audio_input, return_tensors="pt", sampling_rate=samplerate)
-    with torch.no_grad():
-        logits = model(input_values=inputs.input_values).logits
-    predicted_ids = torch.argmax(logits, dim=-1)
-    
-    # Decode the prediction to text
-    transcription = processor.batch_decode(predicted_ids)
-    return transcription[0]
+# App Title
+st.title("Long Audio to Text Transcription")
+st.write("Upload a long audio file, and this app will transcribe it into text. Supports formats like WAV, MP3, M4A.")
 
-# Streamlit app
-st.title("Audio Transcription and AI Analysis")
-uploaded_file = st.file_uploader("Choose an audio file", type=["wav"])
+# Upload audio file
+uploaded_file = st.file_uploader("Upload an audio file", type=["wav", "mp3", "m4a"])
 
-if uploaded_file is not None:
-    # Save the uploaded file to disk
-    file_path = "temp_audio.wav"
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.read())
+if uploaded_file:
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+        temp_audio.write(uploaded_file.read())
+        temp_audio_path = temp_audio.name
 
-    # Transcribe the audio using Wav2Vec2
-    try:
-        transcript = transcribe_audio(file_path)
-        st.write("Transcript:")
-        st.write(transcript)
+    st.audio(uploaded_file, format="audio/wav")
 
-    except Exception as e:
-        st.error(f"Error with transcription: {e}")
-    
-    # Clean up the saved file after processing
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    # Load Whisper model
+    st.info("Loading transcription model (this might take a few seconds)...")
+    model = load_model("base")  # "base" model is lightweight and quick to use.
+
+    # Transcribe audio with timestamps
+    st.info("Transcribing audio...")
+    result = transcribe_with_timestamps(model, temp_audio_path)
+
+    # Display transcription results
+    st.success("Transcription completed!")
+    st.text_area("Transcribed Text with Timestamps", result["text"], height=300)
+
+    # Optional: Save transcription as a text file
+    st.download_button(
+        label="Download Transcription",
+        data=result["text"],
+        file_name="transcription.txt",
+        mime="text/plain"
+    )
+
+    # Cleanup temporary file
+    os.remove(temp_audio_path)
+
+# Footer
+st.write("Powered by OpenAI Whisper and Streamlit")
