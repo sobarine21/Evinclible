@@ -1,75 +1,67 @@
-import streamlit as st
-import whisper
-import tempfile
 import os
-import traceback
-from io import BytesIO
+import speech_recognition as sr
+import logging
 
-# App Title
-st.title("Audio to Text Transcription")
-st.write("Upload an audio file to transcribe its content into text.")
+# Set up logging for debugging
+logging.basicConfig(level=logging.INFO)
 
-# Add Debugging Option
-debug_mode = st.checkbox("Enable Debug Mode")
+def transcribe_audio_with_sphinx(audio_path):
+    """Transcribe WAV audio file using CMU Sphinx."""
+    recognizer = sr.Recognizer()
 
-# File Uploader
-uploaded_file = st.file_uploader("Upload an audio file", type=["mp3", "wav", "m4a", "ogg", "flac"])
-
-if uploaded_file:
     try:
-        st.info("Processing uploaded audio file...")
-        
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-            temp_audio.write(uploaded_file.read())
-            temp_audio_path = temp_audio.name
+        # Open the audio file with SpeechRecognition
+        with sr.AudioFile(audio_path) as source:
+            logging.info(f"Processing {audio_path} for transcription...")
+            audio_data = recognizer.record(source)
 
-        st.audio(uploaded_file, format="audio/wav")
-        st.success("File uploaded successfully!")
+            # Perform transcription using CMU Sphinx
+            logging.info("Transcribing audio using CMU Sphinx...")
+            transcription = recognizer.recognize_sphinx(audio_data)
+            logging.info("Transcription successful!")
+            return transcription
 
-        # Check if whisper is loaded correctly
-        st.info("Checking whisper module...")
-        try:
-            help(whisper)  # Verify the load_model method is available
-        except Exception as e:
-            st.error(f"Error loading whisper module: {str(e)}")
-
-        # Load Whisper Model
-        st.info("Loading transcription model (this may take a few seconds)...")
-        model = whisper.load_model("base")  # Use "base" for lightweight, "small" for better accuracy
-        
-        # Transcribe Audio
-        st.info("Transcribing audio...")
-        transcription_result = model.transcribe(temp_audio_path)
-
-        # Display Results
-        st.success("Transcription completed!")
-        st.text_area("Transcribed Text", transcription_result["text"], height=300)
-
-        # Add Download Option
-        st.download_button(
-            label="Download Transcription",
-            data=transcription_result["text"],
-            file_name="transcription.txt",
-            mime="text/plain"
-        )
-    
+    except FileNotFoundError:
+        logging.error(f"File {audio_path} not found.")
     except Exception as e:
-        # Display error to the user
-        st.error("An error occurred during processing:")
-        st.error(str(e))
-        
-        # Show traceback in debug mode
-        if debug_mode:
-            st.error("Detailed Error Trace:")
-            st.text(traceback.format_exc())
-    
-    finally:
-        # Clean up the temporary audio file
-        if 'temp_audio_path' in locals() and os.path.exists(temp_audio_path):
-            os.remove(temp_audio_path)
-            if debug_mode:
-                st.info("Temporary file cleaned up.")
+        logging.error(f"Error occurred during transcription: {e}")
+    return None
 
-# Footer
-st.write("Powered by OpenAI Whisper and Streamlit")
+
+def process_audio_files(audio_files):
+    """Process a list of WAV audio files and transcribe."""
+    results = {}
+
+    for audio_file in audio_files:
+        # Check if file exists
+        if not os.path.exists(audio_file):
+            logging.warning(f"Audio file {audio_file} does not exist.")
+            results[audio_file] = "File not found"
+            continue
+
+        # Transcribe the audio file
+        transcription = transcribe_audio_with_sphinx(audio_file)
+        if transcription:
+            results[audio_file] = transcription
+        else:
+            results[audio_file] = "Transcription failed"
+    
+    return results
+
+
+# Example usage
+if __name__ == "__main__":
+    # List of WAV audio files to process (provide full paths)
+    audio_files = [
+        'path_to_audio_file1.wav',  # Replace with your audio file paths
+        'path_to_audio_file2.wav',  # Replace with your audio file paths
+        'path_to_audio_file3.wav',  # Replace with your audio file paths
+    ]
+    
+    # Process and transcribe audio files
+    results = process_audio_files(audio_files)
+
+    # Output the transcription results
+    for audio_file, result in results.items():
+        print(f"Audio File: {audio_file}")
+        print(f"Transcription: {result}\n")
